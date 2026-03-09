@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback } from 'react';
+import React, { createContext, useContext, useState, useCallback } from 'react'; // cart context
 import type { Product, Extra } from '@/data/products';
 
 export interface CartItem {
