@@ -7,6 +7,11 @@ const Checkout = () => {
   const { items, updateQuantity, removeItem, totalPrice, clearCart } = useCart();
   const navigate = useNavigate();
 
+  const getItemPrice = (item: typeof items[0]) => {
+    const extrasTotal = item.selectedExtras.reduce((s, e) => s + e.price, 0);
+    return (item.product.price + extrasTotal) * item.quantity;
+  };
+
   if (items.length === 0) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-4 px-4 pb-24 md:pt-20">
@@ -46,7 +51,7 @@ const Checkout = () => {
           <AnimatePresence>
             {items.map(item => (
               <motion.div
-                key={item.product.id}
+                key={item.itemId}
                 layout
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
@@ -62,28 +67,33 @@ const Checkout = () => {
                 <div className="flex flex-1 flex-col justify-between">
                   <div>
                     <h3 className="font-display text-base font-bold text-foreground">{item.product.name}</h3>
-                    <p className="text-sm font-semibold text-muted-foreground">
-                      ${(item.product.price * item.quantity).toFixed(2)}
+                    {item.selectedExtras.length > 0 && (
+                      <p className="text-xs text-muted-foreground">
+                        + {item.selectedExtras.map(e => e.name).join(', ')}
+                      </p>
+                    )}
+                    <p className="text-sm font-semibold text-muted-foreground mt-0.5">
+                      ${getItemPrice(item).toFixed(2)}
                     </p>
                   </div>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <button
-                        onClick={() => updateQuantity(item.product.id, item.quantity - 1)}
+                        onClick={() => updateQuantity(item.itemId, item.quantity - 1)}
                         className="flex h-8 w-8 items-center justify-center rounded-full border border-border text-foreground transition-colors hover:bg-muted"
                       >
                         <Minus size={14} />
                       </button>
                       <span className="w-6 text-center text-sm font-bold text-foreground">{item.quantity}</span>
                       <button
-                        onClick={() => updateQuantity(item.product.id, item.quantity + 1)}
+                        onClick={() => updateQuantity(item.itemId, item.quantity + 1)}
                         className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground transition-colors hover:bg-primary/90"
                       >
                         <Plus size={14} />
                       </button>
                     </div>
                     <button
-                      onClick={() => removeItem(item.product.id)}
+                      onClick={() => removeItem(item.itemId)}
                       className="text-muted-foreground transition-colors hover:text-destructive"
                     >
                       <Trash2 size={16} />
