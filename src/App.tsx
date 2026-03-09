@@ -7,6 +7,7 @@ import { CartProvider } from "@/context/CartContext";
 import Home from "./pages/Home";
 import Menu from "./pages/Menu";
 import Checkout from "./pages/Checkout";
+import ProductDetail from "./pages/ProductDetail";
 import NotFound from "./pages/NotFound";
 import BottomNav from "./components/BottomNav";
 import DesktopNav from "./components/DesktopNav";
