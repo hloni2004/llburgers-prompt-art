@@ -5,6 +5,10 @@ import { componentTagger } from "lovable-tagger";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
+  define: {
+    // sockjs-client (CJS) references Node's `global`; polyfill it for browsers.
+    global: 'globalThis',
+  },
   server: {
     host: "::",
     port: 8080,

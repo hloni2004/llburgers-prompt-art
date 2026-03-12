@@ -11,6 +11,7 @@ export interface Extra {
   id: string;
   name: string;
   price: number;
+  stock?: number;
 }
 
 export interface Product {
@@ -19,11 +20,13 @@ export interface Product {
   description: string;
   price: number;
   image: string;
-  category: 'burgers' | 'sides' | 'drinks';
+  category: 'burgers' | 'sides' | 'drinks' | 'sauces';
   featured?: boolean;
   tag?: string;
   extras?: Extra[];
   details?: string;
+  stock: number;
+  available: boolean;
 }
 
 const burgerExtras: Extra[] = [
@@ -60,6 +63,8 @@ export const products: Product[] = [
     featured: true,
     tag: 'Best Seller',
     extras: burgerExtras,
+    stock: 25,
+    available: true,
   },
   {
     id: '2',
@@ -72,6 +77,8 @@ export const products: Product[] = [
     featured: true,
     tag: 'Popular',
     extras: burgerExtras,
+    stock: 20,
+    available: true,
   },
   {
     id: '3',
@@ -83,6 +90,8 @@ export const products: Product[] = [
     category: 'burgers',
     featured: true,
     extras: burgerExtras,
+    stock: 18,
+    available: true,
   },
   {
     id: '4',
@@ -93,6 +102,8 @@ export const products: Product[] = [
     image: burgerMushroom,
     category: 'burgers',
     extras: burgerExtras,
+    stock: 15,
+    available: true,
   },
   {
     id: '5',
@@ -103,6 +114,8 @@ export const products: Product[] = [
     image: burgerBbq,
     category: 'burgers',
     extras: burgerExtras,
+    stock: 12,
+    available: true,
   },
   {
     id: '6',
@@ -113,6 +126,8 @@ export const products: Product[] = [
     image: fries,
     category: 'sides',
     extras: sideExtras,
+    stock: 40,
+    available: true,
   },
   {
     id: '7',
@@ -123,6 +138,8 @@ export const products: Product[] = [
     image: onionRings,
     category: 'sides',
     extras: sideExtras,
+    stock: 35,
+    available: true,
   },
   {
     id: '8',
@@ -133,5 +150,45 @@ export const products: Product[] = [
     image: milkshake,
     category: 'drinks',
     extras: drinkExtras,
+    stock: 30,
+    available: true,
+  },
+  /* ─── Sauces ─── */
+  {
+    id: '9',
+    name: 'Signature BBQ Sauce',
+    description: 'Smoky, tangy house-made BBQ sauce',
+    details: 'Slow-simmered blend of tomatoes, brown sugar, smoked paprika and apple cider vinegar. The perfect companion.',
+    price: 2.49,
+    image: burgerBbq,
+    category: 'sauces',
+    stock: 50,
+    available: true,
+  },
+  {
+    id: '10',
+    name: 'Truffle Aioli',
+    description: 'Creamy garlic aioli with black truffle',
+    details: 'Rich, garlicky aioli infused with premium black truffle oil. Elevates any burger or side.',
+    price: 3.49,
+    image: burgerMushroom,
+    category: 'sauces',
+    stock: 45,
+    available: true,
+  },
+  {
+    id: '11',
+    name: 'Chipotle Mayo',
+    description: 'Spicy chipotle pepper blended with creamy mayo',
+    details: 'Smoked jalapeño peppers blended into creamy mayo for a spicy kick that pairs perfectly with everything.',
+    price: 2.49,
+    image: burgerSpicy,
+    category: 'sauces',
+    stock: 50,
+    available: true,
   },
 ];
+
+/** Minimum order total (Rand) before delivery can proceed */
+export const MIN_ORDER_AMOUNT = 50;
+export const DELIVERY_FEE = 10;

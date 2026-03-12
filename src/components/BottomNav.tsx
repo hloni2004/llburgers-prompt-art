@@ -1,18 +1,25 @@
-import { Home, UtensilsCrossed, ShoppingCart } from 'lucide-react';
+import { Home, UtensilsCrossed, ShoppingCart, User, ClipboardList } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useCart } from '@/context/CartContext';
+import { useAuth } from '@/context/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
-
-const tabs = [
-  { path: '/', label: 'Home', icon: Home },
-  { path: '/menu', label: 'Menu', icon: UtensilsCrossed },
-  { path: '/checkout', label: 'Cart', icon: ShoppingCart },
-];
 
 const BottomNav = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { totalItems } = useCart();
+  const { user, isAuthenticated } = useAuth();
+
+  // Admins have their own full-page dashboard — no bottom nav needed.
+  if (user?.role === 'ADMIN' || user?.role === 'SUPER') return null;
+
+  const tabs = [
+    { path: '/', label: 'Home', icon: Home },
+    { path: '/menu', label: 'Menu', icon: UtensilsCrossed },
+    { path: '/checkout', label: 'Cart', icon: ShoppingCart },
+    { path: '/orders', label: 'Orders', icon: ClipboardList },
+    { path: isAuthenticated ? '/profile' : '/auth', label: 'Account', icon: User },
+  ];
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-card/95 backdrop-blur-md md:hidden">
@@ -22,14 +29,20 @@ const BottomNav = () => {
           const Icon = tab.icon;
           return (
             <button
-              key={tab.path}
+              key={tab.label}
               onClick={() => navigate(tab.path)}
-              className={`relative flex flex-col items-center gap-0.5 px-4 py-1.5 transition-colors ${
+              className={`relative flex flex-col items-center gap-0.5 px-3 py-1.5 transition-colors ${
                 active ? 'text-primary' : 'text-muted-foreground'
               }`}
             >
               <div className="relative">
-                <Icon size={22} strokeWidth={active ? 2.5 : 2} />
+                {tab.label === 'Account' && isAuthenticated ? (
+                  <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-[11px] font-bold text-primary-foreground">
+                    {user!.name.charAt(0).toUpperCase()}
+                  </div>
+                ) : (
+                  <Icon size={22} strokeWidth={active ? 2.5 : 2} />
+                )}
                 {tab.label === 'Cart' && totalItems > 0 && (
                   <AnimatePresence>
                     <motion.span

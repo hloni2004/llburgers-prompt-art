@@ -2,13 +2,17 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
 import { ArrowLeft, Plus, Minus, ShoppingCart, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { products, type Extra } from '@/data/products';
+import { useProducts } from '@/hooks/useProducts';
+import { useExtras } from '@/hooks/useExtras';
+import type { Extra } from '@/data/products';
 import { useCart } from '@/context/CartContext';
 
 const ProductDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { addItem } = useCart();
+  const { products } = useProducts();
+  const { extras } = useExtras();
   const product = products.find(p => p.id === id);
 
   const [selectedExtras, setSelectedExtras] = useState<Extra[]>([]);
@@ -24,6 +28,7 @@ const ProductDetail = () => {
   }
 
   const toggleExtra = (extra: Extra) => {
+    if ((extra as Extra & { stock?: number }).stock === 0) return;
     setSelectedExtras(prev =>
       prev.find(e => e.id === extra.id)
         ? prev.filter(e => e.id !== extra.id)
@@ -33,8 +38,10 @@ const ProductDetail = () => {
 
   const extrasTotal = selectedExtras.reduce((s, e) => s + e.price, 0);
   const itemTotal = (product.price + extrasTotal) * quantity;
+  const outOfStock = product.stock === 0;
 
   const handleAddToCart = () => {
+    if (outOfStock) return;
     for (let i = 0; i < quantity; i++) {
       addItem(product, selectedExtras);
     }
@@ -89,15 +96,25 @@ const ProductDetail = () => {
             {product.name}
           </h1>
           <p className="mt-2 text-lg font-bold text-primary">
-            ${product.price.toFixed(2)}
+            R{product.price.toFixed(2)}
           </p>
+          {product.stock <= 5 && product.stock > 0 && (
+            <p className="mt-1 text-xs font-semibold text-yellow-600">
+              Only {product.stock} left in stock
+            </p>
+          )}
+          {outOfStock && (
+            <p className="mt-1 text-xs font-semibold text-destructive">
+              Out of stock
+            </p>
+          )}
           <p className="mt-3 text-base text-muted-foreground leading-relaxed">
             {product.details || product.description}
           </p>
         </motion.div>
 
         {/* Extras */}
-        {product.extras && product.extras.length > 0 && (
+        {extras.length > 0 && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -110,17 +127,21 @@ const ProductDetail = () => {
             <p className="mt-1 text-sm text-muted-foreground">Add extras to make it yours</p>
 
             <div className="mt-4 space-y-2">
-              {product.extras.map(extra => {
+              {extras.map(extra => {
                 const isSelected = selectedExtras.some(e => e.id === extra.id);
+                const extraOos = extra.stock === 0;
                 return (
                   <motion.button
                     key={extra.id}
-                    whileTap={{ scale: 0.98 }}
+                    whileTap={extraOos ? undefined : { scale: 0.98 }}
                     onClick={() => toggleExtra(extra)}
+                    disabled={extraOos}
                     className={`flex w-full items-center justify-between rounded-2xl border-2 p-4 transition-all ${
-                      isSelected
-                        ? 'border-primary bg-primary/5'
-                        : 'border-border bg-card hover:border-primary/30'
+                      extraOos
+                        ? 'border-border bg-muted opacity-50 cursor-not-allowed'
+                        : isSelected
+                          ? 'border-primary bg-primary/5'
+                          : 'border-border bg-card hover:border-primary/30'
                     }`}
                   >
                     <div className="flex items-center gap-3">
@@ -143,10 +164,15 @@ const ProductDetail = () => {
                           )}
                         </AnimatePresence>
                       </div>
-                      <span className="text-sm font-semibold text-foreground">{extra.name}</span>
+                      <div className="flex flex-col items-start">
+                        <span className="text-sm font-semibold text-foreground">{extra.name}</span>
+                        {extraOos && (
+                          <span className="text-xs text-destructive">Out of stock</span>
+                        )}
+                      </div>
                     </div>
                     <span className="text-sm font-bold text-muted-foreground">
-                      +${extra.price.toFixed(2)}
+                      +R{extra.price.toFixed(2)}
                     </span>
                   </motion.button>
                 );
@@ -172,8 +198,9 @@ const ProductDetail = () => {
             </button>
             <span className="w-8 text-center text-lg font-bold text-foreground">{quantity}</span>
             <button
-              onClick={() => setQuantity(q => q + 1)}
-              className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground transition-colors hover:bg-primary/90"
+              onClick={() => setQuantity(q => Math.min(product.stock, q + 1))}
+              disabled={quantity >= product.stock}
+              className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <Plus size={16} />
             </button>
@@ -186,18 +213,20 @@ const ProductDetail = () => {
         <div className="mx-auto flex max-w-2xl items-center justify-between gap-4">
           <div>
             <p className="text-xs text-muted-foreground">Total</p>
-            <p className="text-xl font-bold text-foreground">${itemTotal.toFixed(2)}</p>
+            <p className="text-xl font-bold text-foreground">R{itemTotal.toFixed(2)}</p>
           </div>
           <motion.button
             whileTap={{ scale: 0.95 }}
             onClick={handleAddToCart}
-            disabled={added}
+            disabled={added || outOfStock}
             className={`flex items-center gap-2 rounded-full px-8 py-3.5 text-base font-semibold transition-all duration-200 ${
-              added
-                ? 'bg-primary/20 text-primary'
-                : 'bg-primary text-primary-foreground hover:bg-primary-foreground hover:text-primary hover:ring-2 hover:ring-primary'
+              outOfStock
+                ? 'bg-muted text-muted-foreground cursor-not-allowed'
+                : added
+                  ? 'bg-primary/20 text-primary'
+                  : 'bg-primary text-primary-foreground hover:bg-primary-foreground hover:text-primary hover:ring-2 hover:ring-primary'
             }`}
-            style={{ boxShadow: added ? 'none' : 'var(--shadow-button)' }}
+            style={{ boxShadow: added || outOfStock ? 'none' : 'var(--shadow-button)' }}
           >
             {added ? (
               <>
@@ -207,7 +236,7 @@ const ProductDetail = () => {
             ) : (
               <>
                 <ShoppingCart size={18} />
-                Add to Cart
+                {outOfStock ? 'Out of Stock' : 'Add to Cart'}
               </>
             )}
           </motion.button>

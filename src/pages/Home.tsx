@@ -2,15 +2,26 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
 import { motion } from 'framer-motion';
 import heroBanner from '@/assets/hero-banner.jpg';
-import { products } from '@/data/products';
+import { useProducts } from '@/hooks/useProducts';
 import ProductCard from '@/components/ProductCard';
+import { useBusiness } from '@/context/BusinessContext';
 
 const Home = () => {
   const navigate = useNavigate();
-  const featured = products.filter(p => p.featured);
+  const { products } = useProducts();
+  const { isOpen } = useBusiness();
+  const available = products.filter(p => p.available && p.stock > 0);
+  const featuredProducts = available.filter(p => p.featured);
+  const featured = featuredProducts.length > 0 ? featuredProducts : available.slice(0, 6);
 
   return (
     <div className="min-h-screen pb-24 md:pb-12 md:pt-20">
+      {/* Business closed banner */}
+      {!isOpen && (
+        <div className="bg-destructive/90 text-destructive-foreground text-center py-3 px-4 text-sm font-medium">
+          We&apos;re currently closed — check back soon!
+        </div>
+      )}
       {/* Hero */}
       <section className="relative overflow-hidden">
         <div className="relative h-[60vh] min-h-[400px] md:h-[50vh]">
@@ -67,14 +78,16 @@ const Home = () => {
         </div>
       </section>
 
-      {/* Categories preview */}
+      {/* Sides & Drinks */}
       <section className="mx-auto max-w-6xl px-4 pt-12 md:px-6">
         <h2 className="font-display text-2xl font-bold text-foreground md:text-3xl">Sides & Drinks</h2>
         <p className="mt-1 text-sm text-muted-foreground">Complete your meal</p>
         <div className="mt-6 grid grid-cols-2 gap-4 md:grid-cols-3 lg:gap-6">
-          {products.filter(p => p.category !== 'burgers').map((product, i) => (
-            <ProductCard key={product.id} product={product} index={i} />
-          ))}
+          {products
+            .filter(p => (p.category === 'sides' || p.category === 'drinks') && p.available && p.stock > 0)
+            .map((product, i) => (
+              <ProductCard key={product.id} product={product} index={i} />
+            ))}
         </div>
       </section>
     </div>
