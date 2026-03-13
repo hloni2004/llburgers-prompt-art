@@ -25,11 +25,15 @@ import DesktopNav from "./components/DesktopNav";
 
 const queryClient = new QueryClient();
 
-/** Redirects admins to /admin. Shows nothing while session is resolving. */
+/** Redirects confirmed admins to /admin while keeping customer pages public. */
 const CustomerRoute = ({ element }: { element: React.ReactElement }) => {
-  const { user, isLoading } = useAuth();
-  if (isLoading) return null;
-  if (user?.role === 'ADMIN' || user?.role === 'SUPER') return <Navigate to="/admin" replace />;
+  const { user, isAuthenticated, isLoading } = useAuth();
+
+  // Keep public/customer routes visible for guests while session restore runs.
+  if (!isLoading && isAuthenticated && (user?.role === 'ADMIN' || user?.role === 'SUPER')) {
+    return <Navigate to="/admin" replace />;
+  }
+
   return element;
 };
 
