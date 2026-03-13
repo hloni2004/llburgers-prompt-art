@@ -191,4 +191,4 @@ export const products: Product[] = [
 
 /** Minimum order total (Rand) before delivery can proceed */
 export const MIN_ORDER_AMOUNT = 50;
-export const DELIVERY_FEE = 10;
+export const DELIVERY_FEE = 0;

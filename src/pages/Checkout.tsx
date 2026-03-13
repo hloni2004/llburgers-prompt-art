@@ -16,10 +16,10 @@ const PAYMENT_LABELS: Record<string, string> = {
 };
 
 const EFT_DETAILS = {
-  bank: 'FNB (First National Bank)',
+  bank: 'Capitec Bank',
   accountName: 'LL Burgers',
-  accountNumber: '6283 0149 227',
-  branchCode: '250655',
+  accountNumber: '1647591889',
+  cellNumber: '0639144782',
   reference: '', // will be order ID
 };
 
@@ -135,14 +135,14 @@ const Checkout = () => {
               EFT Banking Details
             </h3>
             <p className="mt-1 text-xs text-muted-foreground">
-              Please transfer R{orderTotal.toFixed(2)} and use your order ID as reference.
+              Please transfer exactly R{orderTotal.toFixed(2)} with no extra charges. Delivery is free.
             </p>
             <div className="mt-4 space-y-3 text-sm">
               {[
                 { label: 'Bank', value: EFT_DETAILS.bank },
                 { label: 'Account Name', value: EFT_DETAILS.accountName },
                 { label: 'Account No.', value: EFT_DETAILS.accountNumber },
-                { label: 'Branch Code', value: EFT_DETAILS.branchCode },
+                { label: 'Cell Number', value: EFT_DETAILS.cellNumber },
                 { label: 'Reference', value: placedOrder.id },
               ].map(row => (
                 <div key={row.label} className="flex items-center justify-between">
@@ -406,13 +406,14 @@ const Checkout = () => {
           </div>
           <div className="flex justify-between text-sm text-muted-foreground">
             <span>Delivery</span>
-            <span>R{DELIVERY_FEE.toFixed(2)}</span>
+            <span>FREE</span>
           </div>
           <div className="border-t border-border pt-3">
             <div className="flex justify-between text-lg font-bold text-foreground">
               <span>Total</span>
               <span>R{orderTotal.toFixed(2)}</span>
             </div>
+            <p className="mt-1 text-xs text-muted-foreground">No extra charges apply.</p>
           </div>
         </div>
 
