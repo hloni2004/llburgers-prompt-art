@@ -135,7 +135,7 @@ const Checkout = () => {
               EFT Banking Details
             </h3>
             <p className="mt-1 text-xs text-muted-foreground">
-              Please transfer exactly R{orderTotal.toFixed(2)} with no extra charges. Delivery is free.
+              Please transfer exactly R{orderTotal.toFixed(2)} with no extra charges. Delivery is free. Please enter your room number as reference.
             </p>
             <div className="mt-4 space-y-3 text-sm">
               {[
@@ -143,7 +143,7 @@ const Checkout = () => {
                 { label: 'Account Name', value: EFT_DETAILS.accountName },
                 { label: 'Account No.', value: EFT_DETAILS.accountNumber },
                 { label: 'Cell Number', value: EFT_DETAILS.cellNumber },
-                { label: 'Reference', value: placedOrder.id },
+                { label: 'Reference', value: user?.roomNumber ?? '' },
               ].map(row => (
                 <div key={row.label} className="flex items-center justify-between">
                   <div>
