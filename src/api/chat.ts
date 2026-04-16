@@ -1,3 +1,4 @@
+// Supports Vite and optional Next-style env naming for portability across frontend hosts.
 const API_BASE_URL =
   (import.meta.env.VITE_API_BASE_URL as string | undefined) ??
   (import.meta.env.VITE_API_URL as string | undefined) ??
@@ -79,11 +80,13 @@ export const sendChatMessage = async (message: string): Promise<string> => {
     } catch (error) {
       const isAbortError = error instanceof DOMException && error.name === 'AbortError';
       const errorMessage = isAbortError ? 'Request timed out. Please try again.' : 'Unable to reach chatbot.';
-      lastError = error instanceof Error ? error : new Error(errorMessage);
-
-      if (attempt === CHAT_RETRY_COUNT) {
-        throw lastError;
+      if (isAbortError) {
+        lastError = new Error(errorMessage);
+      } else {
+        lastError = error instanceof Error ? error : new Error(errorMessage);
       }
+
+      if (attempt === CHAT_RETRY_COUNT) break;
     }
   }
 
