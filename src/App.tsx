@@ -22,6 +22,7 @@ import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
 import BottomNav from "./components/BottomNav";
 import DesktopNav from "./components/DesktopNav";
+import Chatbot from "./components/Chatbot";
 
 const queryClient = new QueryClient();
 
@@ -71,6 +72,7 @@ const App = () => (
             <Route path="*"                        element={<NotFound />} />
           </Routes>
           <BottomNav />
+          <Chatbot />
         </BrowserRouter>
       </CartProvider>
       </OrderProvider>

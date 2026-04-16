@@ -5,7 +5,6 @@ import heroBanner from '@/assets/hero-banner.jpg';
 import { useProducts } from '@/hooks/useProducts';
 import ProductCard from '@/components/ProductCard';
 import { useBusiness } from '@/context/BusinessContext';
-import Chatbot from '@/components/Chatbot';
 
 const Home = () => {
   const navigate = useNavigate();
@@ -90,12 +89,6 @@ const Home = () => {
               <ProductCard key={product.id} product={product} index={i} />
             ))}
         </div>
-      </section>
-
-      <section className="mx-auto max-w-6xl px-4 pb-8 pt-12 md:px-6">
-        <h2 className="font-display text-2xl font-bold text-foreground md:text-3xl">Need help?</h2>
-        <p className="mt-1 mb-6 text-sm text-muted-foreground">Chat with our assistant anytime.</p>
-        <Chatbot />
       </section>
     </div>
   );
