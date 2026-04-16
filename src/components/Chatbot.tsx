@@ -88,7 +88,7 @@ const Chatbot = () => {
               Ask us anything about our menu, orders, or delivery.
             </p>
           ) : (
-            <ul className="space-y-3" aria-label="Message list">
+            <ul className="space-y-3">
               {messages.map(message => (
                 <li
                   key={message.id}
@@ -132,7 +132,6 @@ const Chatbot = () => {
             onKeyDown={handleInputKeyDown}
             placeholder="Type your message..."
             className="min-h-[90px] resize-y"
-            aria-label="Type your message"
           />
           <div className="flex justify-end">
             <Button type="submit" disabled={isSendDisabled} aria-label="Send message">
