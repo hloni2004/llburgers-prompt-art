@@ -2,8 +2,10 @@ import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Eye, EyeOff, User, Mail, Phone, MapPin, Hash, Lock } from 'lucide-react';
+import { apiUrl } from '@/api/api';
 import { useAuth } from '@/context/AuthContext';
 import type { DeliveryBlock } from '@/context/AuthContext';
+import { arrayBufferToBase64, base64ToArrayBuffer } from '@/lib/webauthn';
 
 type Mode = 'login' | 'register';
 
@@ -33,7 +35,7 @@ const inputClass =
 const Auth = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { login, register } = useAuth();
+  const { login, register, applyWebAuthnLogin } = useAuth();
 
   const from = (location.state as { from?: string })?.from ?? '/checkout';
 
@@ -41,6 +43,7 @@ const Auth = () => {
   const [showPass, setShowPass] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [webauthnAction, setWebauthnAction] = useState<null | 'register' | 'login'>(null);
 
   /* ---- Login State ---- */
   const [loginEmail, setLoginEmail] = useState('');
@@ -58,6 +61,37 @@ const Auth = () => {
 
   const updateReg = (key: keyof typeof reg, value: string) =>
     setReg(prev => ({ ...prev, [key]: value }));
+
+  const getWebAuthnSupportError = () => {
+    if (typeof window === 'undefined') return 'Biometric authentication is not available.';
+    if (!window.PublicKeyCredential || !navigator.credentials) {
+      return 'Biometric authentication is not supported on this browser.';
+    }
+    if (!window.isSecureContext) {
+      return 'Biometric authentication requires HTTPS.';
+    }
+    return null;
+  };
+
+  const getWebAuthnErrorMessage = (err: unknown, action: 'register' | 'login') => {
+    if (err instanceof DOMException) {
+      if (err.name === 'NotAllowedError' || err.name === 'AbortError') {
+        return 'Authentication was cancelled.';
+      }
+      if (err.name === 'InvalidStateError' && action === 'register') {
+        return 'This device is already registered.';
+      }
+      if (err.name === 'NotSupportedError') {
+        return 'Biometric authentication is not supported on this device.';
+      }
+      if (err.name === 'SecurityError') {
+        return 'Biometric authentication requires HTTPS.';
+      }
+      return err.message || 'Biometric authentication failed.';
+    }
+    if (err instanceof Error && err.message) return err.message;
+    return 'Biometric authentication failed.';
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -110,6 +144,146 @@ const Auth = () => {
       setError(result.error ?? 'Registration failed. Please try again.');
     }
   };
+
+  const handleWebAuthnRegister = async () => {
+    setError('');
+    const supportError = getWebAuthnSupportError();
+    if (supportError) {
+      setError(supportError);
+      return;
+    }
+
+    setWebauthnAction('register');
+    try {
+      const res = await fetch(apiUrl('/api/auth/webauthn/register/options'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+      });
+      const optionsData = await res.json().catch(() => ({})) as Record<string, unknown>;
+      if (!res.ok) throw new Error(String(optionsData.error ?? 'Failed to start biometric registration.'));
+
+      const publicKey = (optionsData.publicKey ?? optionsData) as PublicKeyCredentialCreationOptions;
+      publicKey.challenge = base64ToArrayBuffer(String(publicKey.challenge));
+      if (publicKey.user) {
+        publicKey.user = {
+          ...publicKey.user,
+          id: base64ToArrayBuffer(String(publicKey.user.id)),
+        };
+      }
+      if (publicKey.excludeCredentials) {
+        publicKey.excludeCredentials = publicKey.excludeCredentials.map(cred => ({
+          ...cred,
+          id: base64ToArrayBuffer(String(cred.id)),
+        }));
+      }
+
+      const credential = await navigator.credentials.create({ publicKey });
+      if (!credential) throw new Error('Biometric registration was cancelled.');
+
+      const created = credential as PublicKeyCredential;
+      const response = created.response as AuthenticatorAttestationResponse;
+      const payload = {
+        id: created.id,
+        rawId: arrayBufferToBase64(created.rawId),
+        type: created.type,
+        response: {
+          clientDataJSON: arrayBufferToBase64(response.clientDataJSON),
+          attestationObject: arrayBufferToBase64(response.attestationObject),
+        },
+        clientExtensionResults: created.getClientExtensionResults ? created.getClientExtensionResults() : {},
+      };
+
+      const finishRes = await fetch(apiUrl('/api/auth/webauthn/register/finish'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(payload),
+      });
+      const finishData = await finishRes.json().catch(() => ({})) as Record<string, unknown>;
+      if (!finishRes.ok) throw new Error(String(finishData.error ?? 'Biometric registration failed.'));
+    } catch (err) {
+      setError(getWebAuthnErrorMessage(err, 'register'));
+    } finally {
+      setWebauthnAction(null);
+    }
+  };
+
+  const handleWebAuthnLogin = async () => {
+    setError('');
+    const supportError = getWebAuthnSupportError();
+    if (supportError) {
+      setError(supportError);
+      return;
+    }
+
+    setWebauthnAction('login');
+    try {
+      const res = await fetch(apiUrl('/api/auth/webauthn/login/options'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+      });
+      const optionsData = await res.json().catch(() => ({})) as Record<string, unknown>;
+      if (!res.ok) throw new Error(String(optionsData.error ?? 'Failed to start biometric login.'));
+
+      const publicKey = (optionsData.publicKey ?? optionsData) as PublicKeyCredentialRequestOptions;
+      publicKey.challenge = base64ToArrayBuffer(String(publicKey.challenge));
+      if (publicKey.allowCredentials) {
+        publicKey.allowCredentials = publicKey.allowCredentials.map(cred => ({
+          ...cred,
+          id: base64ToArrayBuffer(String(cred.id)),
+        }));
+      }
+
+      const credential = await navigator.credentials.get({ publicKey });
+      if (!credential) throw new Error('Biometric login was cancelled.');
+
+      const assertion = credential as PublicKeyCredential;
+      const response = assertion.response as AuthenticatorAssertionResponse;
+      const payload = {
+        id: assertion.id,
+        rawId: arrayBufferToBase64(assertion.rawId),
+        type: assertion.type,
+        response: {
+          authenticatorData: arrayBufferToBase64(response.authenticatorData),
+          clientDataJSON: arrayBufferToBase64(response.clientDataJSON),
+          signature: arrayBufferToBase64(response.signature),
+          userHandle: response.userHandle ? arrayBufferToBase64(response.userHandle) : null,
+        },
+        clientExtensionResults: assertion.getClientExtensionResults ? assertion.getClientExtensionResults() : {},
+      };
+
+      const finishRes = await fetch(apiUrl('/api/auth/webauthn/login/finish'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(payload),
+      });
+      const finishData = await finishRes.json().catch(() => ({})) as Record<string, unknown>;
+      if (!finishRes.ok) throw new Error(String(finishData.error ?? 'Biometric login failed.'));
+
+      const token = String(finishData.accessToken ?? '');
+      if (token && typeof window !== 'undefined') {
+        localStorage.setItem('accessToken', token);
+      }
+      const result = applyWebAuthnLogin({
+        accessToken: token,
+        user: (finishData.user as Record<string, unknown>) ?? {},
+      });
+      if (result.ok) {
+        navigate((result.role === 'ADMIN' || result.role === 'SUPER') ? '/admin' : from, { replace: true });
+      } else {
+        setError(result.error ?? 'Biometric login failed.');
+      }
+    } catch (err) {
+      setError(getWebAuthnErrorMessage(err, 'login'));
+    } finally {
+      setWebauthnAction(null);
+    }
+  };
+
+  const webauthnLoading = webauthnAction !== null;
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-background px-4 pb-24 pt-8 md:pb-12">
@@ -214,12 +388,22 @@ const Auth = () => {
 
               <motion.button
                 type="submit"
-                disabled={loading}
+                disabled={loading || webauthnLoading}
                 whileTap={{ scale: 0.97 }}
                 className="w-full rounded-xl bg-primary py-3.5 text-sm font-bold text-primary-foreground shadow-sm transition-opacity hover:opacity-90 disabled:opacity-60"
                 style={{ boxShadow: 'var(--shadow-button)' }}
               >
                 {loading ? 'Signing in…' : 'Sign In'}
+              </motion.button>
+
+              <motion.button
+                type="button"
+                onClick={handleWebAuthnLogin}
+                disabled={loading || webauthnLoading}
+                whileTap={{ scale: 0.97 }}
+                className="w-full rounded-xl border border-border bg-background py-3.5 text-sm font-semibold text-foreground shadow-sm transition-colors hover:bg-muted disabled:opacity-60"
+              >
+                {webauthnAction === 'login' ? 'Authenticating…' : 'Login with Fingerprint'}
               </motion.button>
 
               <div className="flex items-center justify-between text-sm text-muted-foreground">
@@ -381,12 +565,22 @@ const Auth = () => {
 
               <motion.button
                 type="submit"
-                disabled={loading}
+                disabled={loading || webauthnLoading}
                 whileTap={{ scale: 0.97 }}
                 className="w-full rounded-xl bg-primary py-3.5 text-sm font-bold text-primary-foreground shadow-sm transition-opacity hover:opacity-90 disabled:opacity-60"
                 style={{ boxShadow: 'var(--shadow-button)' }}
               >
                 {loading ? 'Creating account…' : 'Create Account & Continue'}
+              </motion.button>
+
+              <motion.button
+                type="button"
+                onClick={handleWebAuthnRegister}
+                disabled={loading || webauthnLoading}
+                whileTap={{ scale: 0.97 }}
+                className="w-full rounded-xl border border-border bg-background py-3.5 text-sm font-semibold text-foreground shadow-sm transition-colors hover:bg-muted disabled:opacity-60"
+              >
+                {webauthnAction === 'register' ? 'Registering…' : 'Register Fingerprint'}
               </motion.button>
 
               <p className="text-center text-sm text-muted-foreground">

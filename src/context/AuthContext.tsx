@@ -39,6 +39,7 @@ interface AuthContextType {
   isLoading: boolean;
   login: (credentials: { email: string; password: string }) => Promise<AuthResult>;
   register: (data: RegisterData) => Promise<AuthResult>;
+  applyWebAuthnLogin: (data: { accessToken: string; user: Record<string, unknown> }) => AuthResult;
   logout: () => Promise<void>;
   updateUser: (data: Partial<User>) => void;
 }
@@ -62,6 +63,8 @@ function mapApiUser(data: Record<string, unknown>): User {
                     .trim()) as PaymentMethod,
   };
 }
+
+const WEB_AUTHN_TOKEN_KEY = 'accessToken';
 
 // ─── Provider ─────────────────────────────────────────────────────────────────
 
@@ -141,6 +144,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, []);
 
+  const applyWebAuthnLogin = useCallback((data: { accessToken: string; user: Record<string, unknown> }): AuthResult => {
+    const token = String(data.accessToken ?? '');
+    if (!token) return { ok: false, error: 'Login failed.' };
+    setAccessToken(token);
+    setStompToken(token);
+    const mapped = mapApiUser(data.user ?? {});
+    setUser(mapped);
+    return { ok: true, role: mapped.role };
+  }, []);
+
   // ── Logout ──────────────────────────────────────────────────────────────────
   const logout = useCallback(async (): Promise<void> => {
     try {
@@ -153,6 +166,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setAccessToken(null);
       setStompToken(null);  // Clear WebSocket authentication
       setUser(null);
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem(WEB_AUTHN_TOKEN_KEY);
+      }
     }
   }, []);
 
@@ -162,7 +178,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated: !!user, isLoading, login, register, logout, updateUser }}>
+    <AuthContext.Provider
+      value={{ user, isAuthenticated: !!user, isLoading, login, register, applyWebAuthnLogin, logout, updateUser }}
+    >
       {children}
     </AuthContext.Provider>
   );
