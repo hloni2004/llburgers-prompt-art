@@ -73,6 +73,10 @@ const Auth = () => {
     return null;
   };
 
+  // Backend may return { publicKey } or the options object directly.
+  const resolvePublicKeyOptions = <T,>(data: Record<string, unknown>): T =>
+    (data.publicKey ?? data) as T;
+
   const getWebAuthnErrorMessage = (err: unknown, action: 'register' | 'login') => {
     if (err instanceof DOMException) {
       if (err.name === 'NotAllowedError' || err.name === 'AbortError') {
@@ -163,7 +167,7 @@ const Auth = () => {
       const optionsData = await res.json().catch(() => ({})) as Record<string, unknown>;
       if (!res.ok) throw new Error(String(optionsData.error ?? 'Failed to start biometric registration.'));
 
-      const publicKey = (optionsData.publicKey ?? optionsData) as PublicKeyCredentialCreationOptions;
+      const publicKey = resolvePublicKeyOptions<PublicKeyCredentialCreationOptions>(optionsData);
       publicKey.challenge = base64ToArrayBuffer(String(publicKey.challenge));
       if (publicKey.user) {
         publicKey.user = {
@@ -191,7 +195,7 @@ const Auth = () => {
           clientDataJSON: arrayBufferToBase64(response.clientDataJSON),
           attestationObject: arrayBufferToBase64(response.attestationObject),
         },
-        clientExtensionResults: created.getClientExtensionResults ? created.getClientExtensionResults() : {},
+        clientExtensionResults: created.getClientExtensionResults(),
       };
 
       const finishRes = await fetch(apiUrl('/api/auth/webauthn/register/finish'), {
@@ -227,7 +231,7 @@ const Auth = () => {
       const optionsData = await res.json().catch(() => ({})) as Record<string, unknown>;
       if (!res.ok) throw new Error(String(optionsData.error ?? 'Failed to start biometric login.'));
 
-      const publicKey = (optionsData.publicKey ?? optionsData) as PublicKeyCredentialRequestOptions;
+      const publicKey = resolvePublicKeyOptions<PublicKeyCredentialRequestOptions>(optionsData);
       publicKey.challenge = base64ToArrayBuffer(String(publicKey.challenge));
       if (publicKey.allowCredentials) {
         publicKey.allowCredentials = publicKey.allowCredentials.map(cred => ({
@@ -251,7 +255,7 @@ const Auth = () => {
           signature: arrayBufferToBase64(response.signature),
           userHandle: response.userHandle ? arrayBufferToBase64(response.userHandle) : null,
         },
-        clientExtensionResults: assertion.getClientExtensionResults ? assertion.getClientExtensionResults() : {},
+        clientExtensionResults: assertion.getClientExtensionResults(),
       };
 
       const finishRes = await fetch(apiUrl('/api/auth/webauthn/login/finish'), {

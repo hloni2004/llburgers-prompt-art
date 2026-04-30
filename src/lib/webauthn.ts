@@ -15,7 +15,7 @@ export const base64ToArrayBuffer = (value: string): ArrayBuffer => {
 
 export const arrayBufferToBase64 = (value: ArrayBuffer | Uint8Array): string => {
   const bytes = value instanceof ArrayBuffer ? new Uint8Array(value) : value;
-  const chunkSize = 0x8000;
+  const chunkSize = 0x8000; // Chunk to avoid call stack limits for large buffers.
   let binary = '';
   for (let i = 0; i < bytes.length; i += chunkSize) {
     binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
