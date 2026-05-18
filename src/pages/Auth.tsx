@@ -189,7 +189,7 @@ const Auth = () => {
     }
   };
 
-  const handleWebAuthnRegister = async (redirectTarget?: string) => {
+  const handleWebAuthnRegister = async (redirectTarget?: string | null) => {
     setError('');
     const supportError = getWebAuthnSupportError();
     if (supportError) {
@@ -663,7 +663,7 @@ const Auth = () => {
 
               <motion.button
                 type="button"
-                onClick={() => handleWebAuthnRegister(pendingRedirect ?? undefined)}
+                onClick={() => handleWebAuthnRegister(pendingRedirect)}
                 disabled={loading || webauthnLoading}
                 whileTap={{ scale: 0.97 }}
                 className="w-full rounded-xl border border-border bg-background py-3.5 text-sm font-semibold text-foreground shadow-sm transition-colors hover:bg-muted disabled:opacity-60"
