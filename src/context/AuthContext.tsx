@@ -151,6 +151,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setStompToken(token);
     const mapped = mapApiUser(data.user ?? {});
     setUser(mapped);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(WEB_AUTHN_TOKEN_KEY, token);
+    }
     return { ok: true, role: mapped.role };
   }, []);
 

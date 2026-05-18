@@ -88,6 +88,13 @@ const Auth = () => {
     }
   };
 
+  const requireBase64 = (value: unknown, label: string) => {
+    if (typeof value !== 'string' || value.length === 0) {
+      throw new Error(`Invalid server response: missing ${label}.`);
+    }
+    return value;
+  };
+
   const getWebAuthnErrorMessage = (err: unknown, action: 'register' | 'login') => {
     if (err instanceof DOMException) {
       if (err.name === 'NotAllowedError' || err.name === 'AbortError') {
@@ -183,17 +190,21 @@ const Auth = () => {
       if (parseError) throw new Error(`Invalid server response: ${parseError}`);
 
       const publicKey = resolvePublicKeyOptions<PublicKeyCredentialCreationOptions>(optionsData);
-      publicKey.challenge = base64ToArrayBuffer(String(publicKey.challenge));
-      if (publicKey.user) {
-        publicKey.user = {
-          ...publicKey.user,
-          id: base64ToArrayBuffer(String(publicKey.user.id)),
-        };
+      publicKey.challenge = base64ToArrayBuffer(requireBase64(publicKey.challenge, 'challenge'));
+      if (!publicKey.user || typeof publicKey.user !== 'object') {
+        throw new Error('Invalid server response: missing user.');
       }
+      publicKey.user = {
+        ...publicKey.user,
+        id: base64ToArrayBuffer(requireBase64(publicKey.user.id, 'user.id')),
+      };
       if (publicKey.excludeCredentials) {
+        if (!Array.isArray(publicKey.excludeCredentials)) {
+          throw new Error('Invalid server response: excludeCredentials.');
+        }
         publicKey.excludeCredentials = publicKey.excludeCredentials.map(cred => ({
           ...cred,
-          id: base64ToArrayBuffer(String(cred.id)),
+          id: base64ToArrayBuffer(requireBase64(cred.id, 'excludeCredentials.id')),
         }));
       }
 
@@ -255,11 +266,14 @@ const Auth = () => {
       if (parseError) throw new Error(`Invalid server response: ${parseError}`);
 
       const publicKey = resolvePublicKeyOptions<PublicKeyCredentialRequestOptions>(optionsData);
-      publicKey.challenge = base64ToArrayBuffer(String(publicKey.challenge));
+      publicKey.challenge = base64ToArrayBuffer(requireBase64(publicKey.challenge, 'challenge'));
       if (publicKey.allowCredentials) {
+        if (!Array.isArray(publicKey.allowCredentials)) {
+          throw new Error('Invalid server response: allowCredentials.');
+        }
         publicKey.allowCredentials = publicKey.allowCredentials.map(cred => ({
           ...cred,
-          id: base64ToArrayBuffer(String(cred.id)),
+          id: base64ToArrayBuffer(requireBase64(cred.id, 'allowCredentials.id')),
         }));
       }
 
@@ -294,12 +308,8 @@ const Auth = () => {
       }
       if (finishParseError) throw new Error(`Invalid server response: ${finishParseError}`);
 
-      const token = String(finishData.accessToken ?? '');
-      if (token && typeof window !== 'undefined') {
-        localStorage.setItem('accessToken', token);
-      }
       const result = applyWebAuthnLogin({
-        accessToken: token,
+        accessToken: String(finishData.accessToken ?? ''),
         user: (finishData.user as Record<string, unknown>) ?? {},
       });
       if (result.ok) {
