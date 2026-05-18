@@ -44,6 +44,7 @@ const Auth = () => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [webauthnAction, setWebauthnAction] = useState<null | 'register' | 'login'>(null);
+  const [pendingRedirect, setPendingRedirect] = useState<string | null>(null);
 
   /* ---- Login State ---- */
   const [loginEmail, setLoginEmail] = useState('');
@@ -180,18 +181,20 @@ const Auth = () => {
     const result = await register({ ...reg, name, email, phone, roomNumber });
     setLoading(false);
     if (result.ok) {
-      navigate((result.role === 'ADMIN' || result.role === 'SUPER') ? '/admin' : from, { replace: true });
+      const redirectTarget = (result.role === 'ADMIN' || result.role === 'SUPER') ? '/admin' : from;
+      setPendingRedirect(redirectTarget);
+      await handleWebAuthnRegister(redirectTarget);
     } else {
       setError(result.error ?? 'Registration failed. Please try again.');
     }
   };
 
-  const handleWebAuthnRegister = async () => {
+  const handleWebAuthnRegister = async (redirectTarget?: string) => {
     setError('');
     const supportError = getWebAuthnSupportError();
     if (supportError) {
       setError(supportError);
-      return;
+      return false;
     }
 
     setWebauthnAction('register');
@@ -259,8 +262,14 @@ const Auth = () => {
         throw new Error(finishParseError ? `${message} (${finishParseError})` : message);
       }
       if (finishParseError) throw new Error(`Invalid server response: ${finishParseError}`);
+      if (redirectTarget) {
+        setPendingRedirect(null);
+        navigate(redirectTarget, { replace: true });
+      }
+      return true;
     } catch (err) {
       setError(getWebAuthnErrorMessage(err, 'register'));
+      return false;
     } finally {
       setWebauthnAction(null);
     }
@@ -350,6 +359,7 @@ const Auth = () => {
   };
 
   const webauthnLoading = webauthnAction !== null;
+  const postRegister = pendingRedirect !== null && mode === 'register';
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-background px-4 pb-24 pt-8 md:pb-12">
@@ -401,6 +411,18 @@ const Auth = () => {
               className="mb-4 overflow-hidden rounded-xl bg-destructive/10 px-4 py-3 text-sm text-destructive"
             >
               {error}
+            </motion.div>
+          )}
+        </AnimatePresence>
+        <AnimatePresence>
+          {postRegister && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              className="mb-4 overflow-hidden rounded-xl bg-primary/10 px-4 py-3 text-sm text-primary"
+            >
+              Account created. Register your fingerprint to enable biometric login, or continue without it.
             </motion.div>
           )}
         </AnimatePresence>
@@ -631,7 +653,7 @@ const Auth = () => {
 
               <motion.button
                 type="submit"
-                disabled={loading || webauthnLoading}
+                disabled={loading || webauthnLoading || postRegister}
                 whileTap={{ scale: 0.97 }}
                 className="w-full rounded-xl bg-primary py-3.5 text-sm font-bold text-primary-foreground shadow-sm transition-opacity hover:opacity-90 disabled:opacity-60"
                 style={{ boxShadow: 'var(--shadow-button)' }}
@@ -641,13 +663,24 @@ const Auth = () => {
 
               <motion.button
                 type="button"
-                onClick={handleWebAuthnRegister}
+                onClick={() => handleWebAuthnRegister(pendingRedirect ?? undefined)}
                 disabled={loading || webauthnLoading}
                 whileTap={{ scale: 0.97 }}
                 className="w-full rounded-xl border border-border bg-background py-3.5 text-sm font-semibold text-foreground shadow-sm transition-colors hover:bg-muted disabled:opacity-60"
               >
                 {webauthnAction === 'register' ? 'Registering…' : 'Register Fingerprint'}
               </motion.button>
+              {postRegister && (
+                <motion.button
+                  type="button"
+                  onClick={() => pendingRedirect && navigate(pendingRedirect, { replace: true })}
+                  disabled={loading || webauthnLoading}
+                  whileTap={{ scale: 0.97 }}
+                  className="w-full rounded-xl border border-border bg-muted py-3.5 text-sm font-semibold text-foreground shadow-sm transition-colors hover:bg-muted/80 disabled:opacity-60"
+                >
+                  Continue without Fingerprint
+                </motion.button>
+              )}
 
               <p className="text-center text-sm text-muted-foreground">
                 Already have an account?{' '}
