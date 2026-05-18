@@ -145,7 +145,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const applyWebAuthnLogin = useCallback((data: { accessToken: string; user: Record<string, unknown> }): AuthResult => {
-    const token = String(data.accessToken ?? '');
+    const token = data.accessToken ?? '';
     if (!token) return { ok: false, error: 'Login failed.' };
     setAccessToken(token);
     setStompToken(token);

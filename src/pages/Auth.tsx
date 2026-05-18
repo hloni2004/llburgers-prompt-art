@@ -77,9 +77,9 @@ const Auth = () => {
   const resolvePublicKeyOptions = <T,>(data: Record<string, unknown>): T =>
     (data.publicKey ?? data) as T;
 
-  const parseJson = async (res: Response) => {
+  const parseJson = async (res: Response): Promise<{ data: Record<string, unknown>; parseError: string | null }> => {
     try {
-      return { data: await res.json() as Record<string, unknown>, parseError: null as string | null };
+      return { data: await res.json() as Record<string, unknown>, parseError: null };
     } catch (err) {
       return {
         data: {},
@@ -194,16 +194,19 @@ const Auth = () => {
       if (!publicKey.user || typeof publicKey.user !== 'object') {
         throw new Error('Invalid server response: missing user.');
       }
+      const { name, displayName } = publicKey.user;
       publicKey.user = {
-        ...publicKey.user,
         id: base64ToArrayBuffer(requireBase64(publicKey.user.id, 'user.id')),
+        name,
+        displayName,
       };
       if (publicKey.excludeCredentials) {
         if (!Array.isArray(publicKey.excludeCredentials)) {
           throw new Error('Invalid server response: excludeCredentials.');
         }
         publicKey.excludeCredentials = publicKey.excludeCredentials.map(cred => ({
-          ...cred,
+          type: cred.type,
+          transports: cred.transports,
           id: base64ToArrayBuffer(requireBase64(cred.id, 'excludeCredentials.id')),
         }));
       }
@@ -272,7 +275,8 @@ const Auth = () => {
           throw new Error('Invalid server response: allowCredentials.');
         }
         publicKey.allowCredentials = publicKey.allowCredentials.map(cred => ({
-          ...cred,
+          type: cred.type,
+          transports: cred.transports,
           id: base64ToArrayBuffer(requireBase64(cred.id, 'allowCredentials.id')),
         }));
       }
@@ -309,7 +313,7 @@ const Auth = () => {
       if (finishParseError) throw new Error(`Invalid server response: ${finishParseError}`);
 
       const result = applyWebAuthnLogin({
-        accessToken: String(finishData.accessToken ?? ''),
+        accessToken: finishData.accessToken ? String(finishData.accessToken) : '',
         user: (finishData.user as Record<string, unknown>) ?? {},
       });
       if (result.ok) {
