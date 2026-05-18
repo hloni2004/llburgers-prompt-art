@@ -77,6 +77,17 @@ const Auth = () => {
   const resolvePublicKeyOptions = <T,>(data: Record<string, unknown>): T =>
     (data.publicKey ?? data) as T;
 
+  const parseJson = async (res: Response) => {
+    try {
+      return { data: await res.json() as Record<string, unknown>, parseError: null as string | null };
+    } catch (err) {
+      return {
+        data: {},
+        parseError: err instanceof Error ? err.message : 'Invalid JSON response',
+      };
+    }
+  };
+
   const getWebAuthnErrorMessage = (err: unknown, action: 'register' | 'login') => {
     if (err instanceof DOMException) {
       if (err.name === 'NotAllowedError' || err.name === 'AbortError') {
@@ -164,8 +175,12 @@ const Auth = () => {
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
       });
-      const optionsData = await res.json().catch(() => ({})) as Record<string, unknown>;
-      if (!res.ok) throw new Error(String(optionsData.error ?? 'Failed to start biometric registration.'));
+      const { data: optionsData, parseError } = await parseJson(res);
+      if (!res.ok) {
+        const message = String(optionsData.error ?? 'Failed to start biometric registration.');
+        throw new Error(parseError ? `${message} (${parseError})` : message);
+      }
+      if (parseError) throw new Error(`Invalid server response: ${parseError}`);
 
       const publicKey = resolvePublicKeyOptions<PublicKeyCredentialCreationOptions>(optionsData);
       publicKey.challenge = base64ToArrayBuffer(String(publicKey.challenge));
@@ -204,8 +219,12 @@ const Auth = () => {
         credentials: 'include',
         body: JSON.stringify(payload),
       });
-      const finishData = await finishRes.json().catch(() => ({})) as Record<string, unknown>;
-      if (!finishRes.ok) throw new Error(String(finishData.error ?? 'Biometric registration failed.'));
+      const { data: finishData, parseError: finishParseError } = await parseJson(finishRes);
+      if (!finishRes.ok) {
+        const message = String(finishData.error ?? 'Biometric registration failed.');
+        throw new Error(finishParseError ? `${message} (${finishParseError})` : message);
+      }
+      if (finishParseError) throw new Error(`Invalid server response: ${finishParseError}`);
     } catch (err) {
       setError(getWebAuthnErrorMessage(err, 'register'));
     } finally {
@@ -228,8 +247,12 @@ const Auth = () => {
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
       });
-      const optionsData = await res.json().catch(() => ({})) as Record<string, unknown>;
-      if (!res.ok) throw new Error(String(optionsData.error ?? 'Failed to start biometric login.'));
+      const { data: optionsData, parseError } = await parseJson(res);
+      if (!res.ok) {
+        const message = String(optionsData.error ?? 'Failed to start biometric login.');
+        throw new Error(parseError ? `${message} (${parseError})` : message);
+      }
+      if (parseError) throw new Error(`Invalid server response: ${parseError}`);
 
       const publicKey = resolvePublicKeyOptions<PublicKeyCredentialRequestOptions>(optionsData);
       publicKey.challenge = base64ToArrayBuffer(String(publicKey.challenge));
@@ -264,8 +287,12 @@ const Auth = () => {
         credentials: 'include',
         body: JSON.stringify(payload),
       });
-      const finishData = await finishRes.json().catch(() => ({})) as Record<string, unknown>;
-      if (!finishRes.ok) throw new Error(String(finishData.error ?? 'Biometric login failed.'));
+      const { data: finishData, parseError: finishParseError } = await parseJson(finishRes);
+      if (!finishRes.ok) {
+        const message = String(finishData.error ?? 'Biometric login failed.');
+        throw new Error(finishParseError ? `${message} (${finishParseError})` : message);
+      }
+      if (finishParseError) throw new Error(`Invalid server response: ${finishParseError}`);
 
       const token = String(finishData.accessToken ?? '');
       if (token && typeof window !== 'undefined') {
