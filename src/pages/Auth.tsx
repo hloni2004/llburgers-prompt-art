@@ -194,7 +194,7 @@ const Auth = () => {
     const supportError = getWebAuthnSupportError();
     if (supportError) {
       setError(supportError);
-      return false;
+      return;
     }
 
     setWebauthnAction('register');
@@ -266,10 +266,8 @@ const Auth = () => {
         setPendingRedirect(null);
         navigate(redirectTarget, { replace: true });
       }
-      return true;
     } catch (err) {
       setError(getWebAuthnErrorMessage(err, 'register'));
-      return false;
     } finally {
       setWebauthnAction(null);
     }
