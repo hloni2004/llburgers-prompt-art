@@ -88,11 +88,30 @@ const Auth = () => {
     }
   };
 
-  const requireBase64 = (value: unknown, label: string) => {
-    if (typeof value !== 'string' || value.length === 0) {
+  const requireString = (value: unknown, label: string) => {
+    if (typeof value !== 'string' || value.trim() === '') {
       throw new Error(`Invalid server response: missing ${label}.`);
     }
     return value;
+  };
+
+  const requireBase64 = (value: unknown, label: string) => requireString(value, label);
+
+  const normalizeCredentialDescriptor = (
+    cred: PublicKeyCredentialDescriptor,
+    label: string,
+  ): PublicKeyCredentialDescriptor => {
+    if (cred.type !== 'public-key') {
+      throw new Error(`Invalid server response: ${label}.type.`);
+    }
+    if (cred.transports && !Array.isArray(cred.transports)) {
+      throw new Error(`Invalid server response: ${label}.transports.`);
+    }
+    return {
+      type: cred.type,
+      id: base64ToArrayBuffer(requireBase64(cred.id, `${label}.id`)),
+      transports: cred.transports,
+    };
   };
 
   const getWebAuthnErrorMessage = (err: unknown, action: 'register' | 'login') => {
@@ -190,6 +209,9 @@ const Auth = () => {
       if (parseError) throw new Error(`Invalid server response: ${parseError}`);
 
       const publicKey = resolvePublicKeyOptions<PublicKeyCredentialCreationOptions>(optionsData);
+      if (!publicKey || typeof publicKey !== 'object') {
+        throw new Error('Invalid server response: missing publicKey.');
+      }
       publicKey.challenge = base64ToArrayBuffer(requireBase64(publicKey.challenge, 'challenge'));
       if (!publicKey.user || typeof publicKey.user !== 'object') {
         throw new Error('Invalid server response: missing user.');
@@ -197,18 +219,16 @@ const Auth = () => {
       const { name, displayName } = publicKey.user;
       publicKey.user = {
         id: base64ToArrayBuffer(requireBase64(publicKey.user.id, 'user.id')),
-        name,
-        displayName,
+        name: requireString(name, 'user.name'),
+        displayName: requireString(displayName, 'user.displayName'),
       };
       if (publicKey.excludeCredentials) {
         if (!Array.isArray(publicKey.excludeCredentials)) {
           throw new Error('Invalid server response: excludeCredentials.');
         }
-        publicKey.excludeCredentials = publicKey.excludeCredentials.map(cred => ({
-          type: cred.type,
-          transports: cred.transports,
-          id: base64ToArrayBuffer(requireBase64(cred.id, 'excludeCredentials.id')),
-        }));
+        publicKey.excludeCredentials = publicKey.excludeCredentials.map(cred =>
+          normalizeCredentialDescriptor(cred, 'excludeCredentials'),
+        );
       }
 
       const credential = await navigator.credentials.create({ publicKey });
@@ -269,16 +289,17 @@ const Auth = () => {
       if (parseError) throw new Error(`Invalid server response: ${parseError}`);
 
       const publicKey = resolvePublicKeyOptions<PublicKeyCredentialRequestOptions>(optionsData);
+      if (!publicKey || typeof publicKey !== 'object') {
+        throw new Error('Invalid server response: missing publicKey.');
+      }
       publicKey.challenge = base64ToArrayBuffer(requireBase64(publicKey.challenge, 'challenge'));
       if (publicKey.allowCredentials) {
         if (!Array.isArray(publicKey.allowCredentials)) {
           throw new Error('Invalid server response: allowCredentials.');
         }
-        publicKey.allowCredentials = publicKey.allowCredentials.map(cred => ({
-          type: cred.type,
-          transports: cred.transports,
-          id: base64ToArrayBuffer(requireBase64(cred.id, 'allowCredentials.id')),
-        }));
+        publicKey.allowCredentials = publicKey.allowCredentials.map(cred =>
+          normalizeCredentialDescriptor(cred, 'allowCredentials'),
+        );
       }
 
       const credential = await navigator.credentials.get({ publicKey });
