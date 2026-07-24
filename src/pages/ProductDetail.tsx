@@ -136,21 +136,19 @@ const ProductDetail = () => {
                     whileTap={extraOos ? undefined : { scale: 0.98 }}
                     onClick={() => toggleExtra(extra)}
                     disabled={extraOos}
-                    className={`flex w-full items-center justify-between rounded-2xl border-2 p-4 transition-all ${
-                      extraOos
-                        ? 'border-border bg-muted opacity-50 cursor-not-allowed'
-                        : isSelected
-                          ? 'border-primary bg-primary/5'
-                          : 'border-border bg-card hover:border-primary/30'
-                    }`}
+                    className={`flex w-full items-center justify-between rounded-2xl border-2 p-4 transition-all ${extraOos
+                      ? 'border-border bg-muted opacity-50 cursor-not-allowed'
+                      : isSelected
+                        ? 'border-primary bg-primary/5'
+                        : 'border-border bg-card hover:border-primary/30'
+                      }`}
                   >
                     <div className="flex items-center gap-3">
                       <div
-                        className={`flex h-6 w-6 items-center justify-center rounded-full border-2 transition-all ${
-                          isSelected
-                            ? 'border-primary bg-primary'
-                            : 'border-border'
-                        }`}
+                        className={`flex h-6 w-6 items-center justify-center rounded-full border-2 transition-all ${isSelected
+                          ? 'border-primary bg-primary'
+                          : 'border-border'
+                          }`}
                       >
                         <AnimatePresence>
                           {isSelected && (
@@ -196,7 +194,7 @@ const ProductDetail = () => {
             >
               <Minus size={16} />
             </button>
-            <span className="w-8 text-center text-lg font-bold text-foreground">{quantity}</span>
+            <span className="min-w-[3rem] text-center text-lg font-bold text-foreground">{quantity}</span>
             <button
               onClick={() => setQuantity(q => Math.min(product.stock, q + 1))}
               disabled={quantity >= product.stock}
@@ -219,13 +217,12 @@ const ProductDetail = () => {
             whileTap={{ scale: 0.95 }}
             onClick={handleAddToCart}
             disabled={added || outOfStock}
-            className={`flex items-center gap-2 rounded-full px-8 py-3.5 text-base font-semibold transition-all duration-200 ${
-              outOfStock
-                ? 'bg-muted text-muted-foreground cursor-not-allowed'
-                : added
-                  ? 'bg-primary/20 text-primary'
-                  : 'bg-primary text-primary-foreground hover:bg-primary-foreground hover:text-primary hover:ring-2 hover:ring-primary'
-            }`}
+            className={`flex items-center gap-2 rounded-full px-8 py-3.5 text-base font-semibold transition-all duration-200 ${outOfStock
+              ? 'bg-muted text-muted-foreground cursor-not-allowed'
+              : added
+                ? 'bg-primary/20 text-primary'
+                : 'bg-primary text-primary-foreground hover:bg-primary-foreground hover:text-primary hover:ring-2 hover:ring-primary'
+              }`}
             style={{ boxShadow: added || outOfStock ? 'none' : 'var(--shadow-button)' }}
           >
             {added ? (

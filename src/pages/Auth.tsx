@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Eye, EyeOff, User, Mail, Phone, MapPin, Hash, Lock } from 'lucide-react';
 import { apiUrl } from '@/api/api';
@@ -36,7 +36,7 @@ const Auth = () => {
   const location = useLocation();
   const { login, register } = useAuth();
 
-  const from = (location.state as { from?: string })?.from ?? '/checkout';
+  const returnTo = '/';
 
   const [mode, setMode] = useState<Mode>('login');
   const [showPass, setShowPass] = useState(false);
@@ -70,7 +70,7 @@ const Auth = () => {
     const result = await login({ email: loginEmail, password: loginPassword });
     setLoading(false);
     if (result.ok) {
-      navigate((result.role === 'ADMIN' || result.role === 'SUPER') ? '/admin' : from, { replace: true });
+      navigate((result.role === 'ADMIN' || result.role === 'SUPER') ? '/admin' : returnTo, { replace: true });
     } else {
       setError(result.error ?? 'Invalid email or password.');
     }
@@ -109,7 +109,7 @@ const Auth = () => {
     const result = await register({ ...reg, name, email, phone, roomNumber });
     setLoading(false);
     if (result.ok) {
-      navigate((result.role === 'ADMIN' || result.role === 'SUPER') ? '/admin' : from, { replace: true });
+      navigate((result.role === 'ADMIN' || result.role === 'SUPER') ? '/admin' : returnTo, { replace: true });
     } else {
       setError(result.error ?? 'Registration failed. Please try again.');
     }
@@ -151,8 +151,8 @@ const Auth = () => {
               key={m}
               onClick={() => { setMode(m); setError(''); }}
               className={`flex-1 rounded-lg py-2 text-sm font-semibold transition-all ${mode === m
-                  ? 'bg-primary text-primary-foreground shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground'
+                ? 'bg-primary text-primary-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground'
                 }`}
             >
               {m === 'login' ? 'Sign In' : 'Register'}
@@ -315,8 +315,8 @@ const Auth = () => {
                         type="button"
                         onClick={() => updateReg('deliveryBlock', block)}
                         className={`flex-1 rounded-xl border py-2.5 text-sm font-bold transition-all ${reg.deliveryBlock === block
-                            ? 'border-primary bg-primary text-primary-foreground'
-                            : 'border-border bg-background text-foreground hover:border-primary/50'
+                          ? 'border-primary bg-primary text-primary-foreground'
+                          : 'border-border bg-background text-foreground hover:border-primary/50'
                           }`}
                       >
                         {block}

@@ -305,7 +305,7 @@ const Checkout = () => {
                       >
                         <Minus size={14} />
                       </button>
-                      <span className="w-6 text-center text-sm font-bold text-foreground">{item.quantity}</span>
+                      <span className="min-w-[2.25rem] text-center text-sm font-bold text-foreground">{item.quantity}</span>
                       <button
                         onClick={() => updateQuantity(item.itemId, item.quantity + 1)}
                         className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground transition-colors hover:bg-primary/90"
@@ -354,11 +354,10 @@ const Checkout = () => {
                       key={method}
                       type="button"
                       onClick={() => setSelectedPayment(method)}
-                      className={`flex-1 rounded-xl border px-3 py-2 text-sm font-semibold transition-all ${
-                        selectedPayment === method
+                      className={`flex-1 rounded-xl border px-3 py-2 text-sm font-semibold transition-all ${selectedPayment === method
                           ? 'border-primary bg-primary/10 text-primary'
                           : 'border-border text-muted-foreground hover:border-primary/40'
-                      }`}
+                        }`}
                     >
                       {method === 'cash' ? 'Cash on Delivery' : 'EFT Transfer'}
                     </button>
