@@ -5,7 +5,6 @@ import { Eye, EyeOff, User, Mail, Phone, MapPin, Hash, Lock } from 'lucide-react
 import { apiUrl } from '@/api/api';
 import { useAuth } from '@/context/AuthContext';
 import type { DeliveryBlock } from '@/context/AuthContext';
-import { arrayBufferToBase64, base64ToArrayBuffer } from '@/lib/webauthn';
 
 type Mode = 'login' | 'register';
 
@@ -19,11 +18,11 @@ const DISPOSABLE_DOMAINS = new Set([
 ]);
 
 const checkStrength = (pwd: string) => ({
-  length:    pwd.length >= 12,
+  length: pwd.length >= 12,
   uppercase: /[A-Z]/.test(pwd),
   lowercase: /[a-z]/.test(pwd),
-  number:    /\d/.test(pwd),
-  special:   /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>/?]/.test(pwd),
+  number: /\d/.test(pwd),
+  special: /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>/?]/.test(pwd),
 });
 
 const sanitize = (s: string) =>
@@ -35,7 +34,7 @@ const inputClass =
 const Auth = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { login, register, applyWebAuthnLogin } = useAuth();
+  const { login, register } = useAuth();
 
   const from = (location.state as { from?: string })?.from ?? '/checkout';
 
@@ -43,7 +42,7 @@ const Auth = () => {
   const [showPass, setShowPass] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [webauthnAction, setWebauthnAction] = useState<null | 'register' | 'login'>(null);
+
 
   /* ---- Login State ---- */
   const [loginEmail, setLoginEmail] = useState('');
@@ -62,77 +61,7 @@ const Auth = () => {
   const updateReg = (key: keyof typeof reg, value: string) =>
     setReg(prev => ({ ...prev, [key]: value }));
 
-  const getWebAuthnSupportError = () => {
-    if (typeof window === 'undefined') return 'Biometric authentication is not available.';
-    if (!window.PublicKeyCredential || !navigator.credentials) {
-      return 'Biometric authentication is not supported on this browser.';
-    }
-    if (!window.isSecureContext) {
-      return 'Biometric authentication requires HTTPS.';
-    }
-    return null;
-  };
 
-  // Backend may return { publicKey } or the options object directly.
-  const resolvePublicKeyOptions = <T,>(data: Record<string, unknown>): T =>
-    (data.publicKey ?? data) as T;
-
-  const parseJson = async (res: Response): Promise<{ data: Record<string, unknown>; parseError: string | null }> => {
-    try {
-      return { data: await res.json() as Record<string, unknown>, parseError: null };
-    } catch (err) {
-      return {
-        data: {},
-        parseError: err instanceof Error ? err.message : 'Invalid JSON response',
-      };
-    }
-  };
-
-  const requireString = (value: unknown, label: string) => {
-    if (typeof value !== 'string' || value.trim() === '') {
-      throw new Error(`Invalid server response: missing ${label}.`);
-    }
-    return value;
-  };
-
-  const requireBase64 = (value: unknown, label: string) => requireString(value, label);
-
-  const normalizeCredentialDescriptor = (
-    cred: PublicKeyCredentialDescriptor,
-    label: string,
-  ): PublicKeyCredentialDescriptor => {
-    if (cred.type !== 'public-key') {
-      throw new Error(`Invalid server response: ${label}.type.`);
-    }
-    if (cred.transports && !Array.isArray(cred.transports)) {
-      throw new Error(`Invalid server response: ${label}.transports.`);
-    }
-    return {
-      type: cred.type,
-      id: base64ToArrayBuffer(requireBase64(cred.id, `${label}.id`)),
-      transports: cred.transports,
-    };
-  };
-
-  const getWebAuthnErrorMessage = (err: unknown, action: 'register' | 'login') => {
-    if (err instanceof DOMException) {
-      if (err.name === 'NotAllowedError' || err.name === 'AbortError') {
-        return 'Authentication was cancelled.';
-      }
-      if (err.name === 'InvalidStateError' && action === 'register') {
-        return 'This device is already registered.';
-      }
-      if (err.name === 'NotSupportedError') {
-        return 'Biometric authentication is not supported on this device.';
-      }
-      if (err.name === 'SecurityError') {
-        return 'Biometric authentication requires HTTPS.';
-      }
-      return err.message || 'Biometric authentication failed.';
-    }
-    if (err instanceof Error && err.message) return err.message;
-    return 'Biometric authentication failed.';
-  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -152,10 +81,10 @@ const Auth = () => {
     setError('');
 
     // Client-side sanitization
-    const name        = sanitize(reg.name);
-    const email       = reg.email.trim().toLowerCase();
-    const phone       = sanitize(reg.phone);
-    const roomNumber  = sanitize(reg.roomNumber);
+    const name = sanitize(reg.name);
+    const email = reg.email.trim().toLowerCase();
+    const phone = sanitize(reg.phone);
+    const roomNumber = sanitize(reg.roomNumber);
 
     if (!name || !email || !phone || !roomNumber || !reg.password) {
       setError('Please fill in all required fields.');
@@ -186,170 +115,11 @@ const Auth = () => {
     }
   };
 
-  const handleWebAuthnRegister = async () => {
-    setError('');
-    const supportError = getWebAuthnSupportError();
-    if (supportError) {
-      setError(supportError);
-      return;
-    }
 
-    setWebauthnAction('register');
-    try {
-      const res = await fetch(apiUrl('/api/auth/webauthn/register/options'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-      });
-      const { data: optionsData, parseError } = await parseJson(res);
-      if (!res.ok) {
-        const message = String(optionsData.error ?? 'Failed to start biometric registration.');
-        throw new Error(parseError ? `${message} (${parseError})` : message);
-      }
-      if (parseError) throw new Error(`Invalid server response: ${parseError}`);
 
-      const publicKey = resolvePublicKeyOptions<PublicKeyCredentialCreationOptions>(optionsData);
-      if (!publicKey || typeof publicKey !== 'object') {
-        throw new Error('Invalid server response: missing publicKey.');
-      }
-      publicKey.challenge = base64ToArrayBuffer(requireBase64(publicKey.challenge, 'challenge'));
-      if (!publicKey.user || typeof publicKey.user !== 'object') {
-        throw new Error('Invalid server response: missing user.');
-      }
-      const { name, displayName } = publicKey.user;
-      publicKey.user = {
-        id: base64ToArrayBuffer(requireBase64(publicKey.user.id, 'user.id')),
-        name: requireString(name, 'user.name'),
-        displayName: requireString(displayName, 'user.displayName'),
-      };
-      if (publicKey.excludeCredentials) {
-        if (!Array.isArray(publicKey.excludeCredentials)) {
-          throw new Error('Invalid server response: excludeCredentials.');
-        }
-        publicKey.excludeCredentials = publicKey.excludeCredentials.map(cred =>
-          normalizeCredentialDescriptor(cred, 'excludeCredentials'),
-        );
-      }
 
-      const credential = await navigator.credentials.create({ publicKey });
-      if (!credential) throw new Error('Biometric registration was cancelled.');
 
-      const created = credential as PublicKeyCredential;
-      const response = created.response as AuthenticatorAttestationResponse;
-      const payload = {
-        id: created.id,
-        rawId: arrayBufferToBase64(created.rawId),
-        type: created.type,
-        response: {
-          clientDataJSON: arrayBufferToBase64(response.clientDataJSON),
-          attestationObject: arrayBufferToBase64(response.attestationObject),
-        },
-        clientExtensionResults: created.getClientExtensionResults(),
-      };
 
-      const finishRes = await fetch(apiUrl('/api/auth/webauthn/register/finish'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify(payload),
-      });
-      const { data: finishData, parseError: finishParseError } = await parseJson(finishRes);
-      if (!finishRes.ok) {
-        const message = String(finishData.error ?? 'Biometric registration failed.');
-        throw new Error(finishParseError ? `${message} (${finishParseError})` : message);
-      }
-      if (finishParseError) throw new Error(`Invalid server response: ${finishParseError}`);
-    } catch (err) {
-      setError(getWebAuthnErrorMessage(err, 'register'));
-    } finally {
-      setWebauthnAction(null);
-    }
-  };
-
-  const handleWebAuthnLogin = async () => {
-    setError('');
-    const supportError = getWebAuthnSupportError();
-    if (supportError) {
-      setError(supportError);
-      return;
-    }
-
-    setWebauthnAction('login');
-    try {
-      const res = await fetch(apiUrl('/api/auth/webauthn/login/options'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-      });
-      const { data: optionsData, parseError } = await parseJson(res);
-      if (!res.ok) {
-        const message = String(optionsData.error ?? 'Failed to start biometric login.');
-        throw new Error(parseError ? `${message} (${parseError})` : message);
-      }
-      if (parseError) throw new Error(`Invalid server response: ${parseError}`);
-
-      const publicKey = resolvePublicKeyOptions<PublicKeyCredentialRequestOptions>(optionsData);
-      if (!publicKey || typeof publicKey !== 'object') {
-        throw new Error('Invalid server response: missing publicKey.');
-      }
-      publicKey.challenge = base64ToArrayBuffer(requireBase64(publicKey.challenge, 'challenge'));
-      if (publicKey.allowCredentials) {
-        if (!Array.isArray(publicKey.allowCredentials)) {
-          throw new Error('Invalid server response: allowCredentials.');
-        }
-        publicKey.allowCredentials = publicKey.allowCredentials.map(cred =>
-          normalizeCredentialDescriptor(cred, 'allowCredentials'),
-        );
-      }
-
-      const credential = await navigator.credentials.get({ publicKey });
-      if (!credential) throw new Error('Biometric login was cancelled.');
-
-      const assertion = credential as PublicKeyCredential;
-      const response = assertion.response as AuthenticatorAssertionResponse;
-      const payload = {
-        id: assertion.id,
-        rawId: arrayBufferToBase64(assertion.rawId),
-        type: assertion.type,
-        response: {
-          authenticatorData: arrayBufferToBase64(response.authenticatorData),
-          clientDataJSON: arrayBufferToBase64(response.clientDataJSON),
-          signature: arrayBufferToBase64(response.signature),
-          userHandle: response.userHandle ? arrayBufferToBase64(response.userHandle) : null,
-        },
-        clientExtensionResults: assertion.getClientExtensionResults(),
-      };
-
-      const finishRes = await fetch(apiUrl('/api/auth/webauthn/login/finish'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify(payload),
-      });
-      const { data: finishData, parseError: finishParseError } = await parseJson(finishRes);
-      if (!finishRes.ok) {
-        const message = String(finishData.error ?? 'Biometric login failed.');
-        throw new Error(finishParseError ? `${message} (${finishParseError})` : message);
-      }
-      if (finishParseError) throw new Error(`Invalid server response: ${finishParseError}`);
-
-      const result = applyWebAuthnLogin({
-        accessToken: finishData.accessToken ? String(finishData.accessToken) : '',
-        user: (finishData.user as Record<string, unknown>) ?? {},
-      });
-      if (result.ok) {
-        navigate((result.role === 'ADMIN' || result.role === 'SUPER') ? '/admin' : from, { replace: true });
-      } else {
-        setError(result.error ?? 'Biometric login failed.');
-      }
-    } catch (err) {
-      setError(getWebAuthnErrorMessage(err, 'login'));
-    } finally {
-      setWebauthnAction(null);
-    }
-  };
-
-  const webauthnLoading = webauthnAction !== null;
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-background px-4 pb-24 pt-8 md:pb-12">
@@ -380,11 +150,10 @@ const Auth = () => {
             <button
               key={m}
               onClick={() => { setMode(m); setError(''); }}
-              className={`flex-1 rounded-lg py-2 text-sm font-semibold transition-all ${
-                mode === m
+              className={`flex-1 rounded-lg py-2 text-sm font-semibold transition-all ${mode === m
                   ? 'bg-primary text-primary-foreground shadow-sm'
                   : 'text-muted-foreground hover:text-foreground'
-              }`}
+                }`}
             >
               {m === 'login' ? 'Sign In' : 'Register'}
             </button>
@@ -454,7 +223,7 @@ const Auth = () => {
 
               <motion.button
                 type="submit"
-                disabled={loading || webauthnLoading}
+                disabled={loading}
                 whileTap={{ scale: 0.97 }}
                 className="w-full rounded-xl bg-primary py-3.5 text-sm font-bold text-primary-foreground shadow-sm transition-opacity hover:opacity-90 disabled:opacity-60"
                 style={{ boxShadow: 'var(--shadow-button)' }}
@@ -462,15 +231,6 @@ const Auth = () => {
                 {loading ? 'Signing in…' : 'Sign In'}
               </motion.button>
 
-              <motion.button
-                type="button"
-                onClick={handleWebAuthnLogin}
-                disabled={loading || webauthnLoading}
-                whileTap={{ scale: 0.97 }}
-                className="w-full rounded-xl border border-border bg-background py-3.5 text-sm font-semibold text-foreground shadow-sm transition-colors hover:bg-muted disabled:opacity-60"
-              >
-                {webauthnAction === 'login' ? 'Authenticating…' : 'Login with Fingerprint'}
-              </motion.button>
 
               <div className="flex items-center justify-between text-sm text-muted-foreground">
                 <button
@@ -554,11 +314,10 @@ const Auth = () => {
                         key={block}
                         type="button"
                         onClick={() => updateReg('deliveryBlock', block)}
-                        className={`flex-1 rounded-xl border py-2.5 text-sm font-bold transition-all ${
-                          reg.deliveryBlock === block
+                        className={`flex-1 rounded-xl border py-2.5 text-sm font-bold transition-all ${reg.deliveryBlock === block
                             ? 'border-primary bg-primary text-primary-foreground'
                             : 'border-border bg-background text-foreground hover:border-primary/50'
-                        }`}
+                          }`}
                       >
                         {block}
                       </button>
@@ -607,11 +366,11 @@ const Auth = () => {
               {reg.password.length > 0 && (() => {
                 const s = checkStrength(reg.password);
                 const rules = [
-                  { label: '12+ characters',       ok: s.length },
-                  { label: 'Uppercase letter',      ok: s.uppercase },
-                  { label: 'Lowercase letter',      ok: s.lowercase },
-                  { label: 'Number',                ok: s.number },
-                  { label: 'Special character',     ok: s.special },
+                  { label: '12+ characters', ok: s.length },
+                  { label: 'Uppercase letter', ok: s.uppercase },
+                  { label: 'Lowercase letter', ok: s.lowercase },
+                  { label: 'Number', ok: s.number },
+                  { label: 'Special character', ok: s.special },
                 ];
                 return (
                   <div className="grid grid-cols-2 gap-x-3 gap-y-1 rounded-xl border border-border bg-muted/50 p-3">
@@ -631,7 +390,7 @@ const Auth = () => {
 
               <motion.button
                 type="submit"
-                disabled={loading || webauthnLoading}
+                disabled={loading}
                 whileTap={{ scale: 0.97 }}
                 className="w-full rounded-xl bg-primary py-3.5 text-sm font-bold text-primary-foreground shadow-sm transition-opacity hover:opacity-90 disabled:opacity-60"
                 style={{ boxShadow: 'var(--shadow-button)' }}
@@ -639,15 +398,6 @@ const Auth = () => {
                 {loading ? 'Creating account…' : 'Create Account & Continue'}
               </motion.button>
 
-              <motion.button
-                type="button"
-                onClick={handleWebAuthnRegister}
-                disabled={loading || webauthnLoading}
-                whileTap={{ scale: 0.97 }}
-                className="w-full rounded-xl border border-border bg-background py-3.5 text-sm font-semibold text-foreground shadow-sm transition-colors hover:bg-muted disabled:opacity-60"
-              >
-                {webauthnAction === 'register' ? 'Registering…' : 'Register Fingerprint'}
-              </motion.button>
 
               <p className="text-center text-sm text-muted-foreground">
                 Already have an account?{' '}
