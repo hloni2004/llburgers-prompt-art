@@ -1,12 +1,14 @@
 import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
+import { dismissSplash } from "./lib/splash";
 
-createRoot(document.getElementById("root")!).render(<App />);
+const rootElement = document.getElementById("root");
 
-// Fade out and remove the splash loader
-const splash = document.getElementById("splash");
-if (splash) {
-  splash.style.opacity = "0";
-  splash.addEventListener("transitionend", () => splash.remove());
+if (!rootElement) {
+  throw new Error("Root container #root was not found.");
 }
+
+createRoot(rootElement).render(<App />);
+
+dismissSplash();
